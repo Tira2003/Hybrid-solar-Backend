@@ -3,6 +3,14 @@ import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { User } from "../infrastructure/entities/User";
 import { AppError } from "../domain/errors/errors";
 
+// Simple in-memory cache to avoid rate limits
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+const weatherCache: Map<string, CacheEntry> = new Map();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 export const getWeatherForSolarUnit = async (
   req: Request,
   res: Response,
@@ -94,6 +102,16 @@ async function fetchWeatherFromOpenMeteo(
   latitude: number,
   longitude: number
 ) {
+  // Create cache key based on coordinates (rounded to 2 decimal places)
+  const cacheKey = `${latitude.toFixed(2)},${longitude.toFixed(2)}`;
+  
+  // Check cache first
+  const cached = weatherCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
+    console.log(`Weather cache hit for ${cacheKey}`);
+    return cached.data;
+  }
+
   const url = new URL("https://api.open-meteo.com/v1/forecast");
   url.searchParams.append("latitude", latitude.toString());
   url.searchParams.append("longitude", longitude.toString());
@@ -116,13 +134,18 @@ async function fetchWeatherFromOpenMeteo(
   const response = await fetch(url.toString());
 
   if (!response.ok) {
+    // If rate limited, try to return stale cache if available
+    if (response.status === 429 && cached) {
+      console.log(`Rate limited, returning stale cache for ${cacheKey}`);
+      return cached.data;
+    }
     throw new Error(`Weather API error: ${response.statusText}`);
   }
 
   const data = await response.json() as any;
 
   // Transform the raw data into a more usable format
-  return {
+  const result = {
     current: {
       temperature: data.current.temperature_2m,
       humidity: data.current.relative_humidity_2m,
@@ -141,6 +164,12 @@ async function fetchWeatherFromOpenMeteo(
     },
     timestamp: new Date(data.current.time),
   };
+
+  // Store in cache
+  weatherCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  console.log(`Weather cached for ${cacheKey}`);
+
+  return result;
 }
 
 export function getSolarImpact(cloudCover: number, weatherCode: number): {
