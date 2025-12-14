@@ -13,7 +13,12 @@ import usersRouter from "./api/users";
 import weatherRouter from "./api/weather";
 
 const server = express();
-server.use(cors({ origin: "http://localhost:5173" }));
+server.use(cors({ 
+  origin: [
+    "http://localhost:5173",
+    "https://fed-4-front-end-tiranga.netlify.app"
+  ] 
+}));
 
 server.use(loggerMiddleware);
 
