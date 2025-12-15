@@ -12,6 +12,8 @@ import webhooksRouter from "./api/webhooks";
 import { clerkMiddleware } from "@clerk/express";
 import usersRouter from "./api/users";
 import weatherRouter from "./api/weather";
+import { handleStripeWebhook } from "./application/payment";
+import paymentRoutes from "./api/payment";
 
 const server = express();
 server.use(cors({ 
@@ -20,6 +22,14 @@ server.use(cors({
     "https://fed-4-front-end-tiranga.netlify.app"
   ] 
 }));
+
+
+server.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook
+);
+
 
 server.use(loggerMiddleware);
 
@@ -34,6 +44,7 @@ server.use("/api/energy-generation-records", energyGenerationRecordRouter);
 server.use("/api/users", usersRouter);
 server.use("/api/weather", weatherRouter);
 server.use("/api/invoices", invoiceRouter);
+server.use("/api/payments", paymentRoutes);
 
 server.use(globalErrorHandler);
 
