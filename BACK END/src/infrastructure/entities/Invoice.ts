@@ -12,6 +12,11 @@ const invoiceSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    invoiceNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     billingPeriodStart: {
       type: Date,
       required: true,
@@ -20,7 +25,21 @@ const invoiceSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    dueDate: {
+      type: Date,
+      required: true,
+    },
     totalEnergyGenerated: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    ratePerKwh: {
+      type: Number,
+      required: true,
+      default: 0.12,
+    },
+    amount: {
       type: Number,
       required: true,
       min: 0,
@@ -37,7 +56,7 @@ const invoiceSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt automatically
+    timestamps: true,
   }
 );
 

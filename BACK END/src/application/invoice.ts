@@ -5,6 +5,37 @@ import { User } from "../infrastructure/entities/User";
 import { NotFoundError } from "../domain/errors/errors";
 
 /**
+ * Transform invoice to frontend expected format
+ */
+const transformInvoice = (invoice: any) => {
+  // Map paymentStatus to frontend status format
+  let status = "pending";
+  if (invoice.paymentStatus === "PAID") {
+    status = "paid";
+  } else if (invoice.paymentStatus === "FAILED") {
+    status = "overdue";
+  } else if (invoice.dueDate && new Date(invoice.dueDate) < new Date()) {
+    status = "overdue";
+  }
+
+  return {
+    _id: invoice._id,
+    status,
+    invoiceNumber: invoice.invoiceNumber,
+    kwhGenerated: invoice.totalEnergyGenerated,
+    amount: invoice.amount,
+    ratePerKwh: invoice.ratePerKwh,
+    billingPeriodStart: invoice.billingPeriodStart,
+    billingPeriodEnd: invoice.billingPeriodEnd,
+    dueDate: invoice.dueDate,
+    createdAt: invoice.createdAt,
+    paidAt: invoice.paidAt || null,
+    solarUnitId: invoice.solarUnitId,
+    userId: invoice.userId,
+  };
+};
+
+/**
  * Get all invoices for the authenticated user
  */
 export const getInvoicesForUser = async (
@@ -25,15 +56,24 @@ export const getInvoicesForUser = async (
     const { status } = req.query;
     const filter: Record<string, unknown> = { userId: user._id };
     
-    if (status && ["PENDING", "PAID", "FAILED"].includes(status as string)) {
-      filter.paymentStatus = status;
+    // Map frontend status to backend paymentStatus
+    if (status) {
+      const statusLower = (status as string).toLowerCase();
+      if (statusLower === "paid") {
+        filter.paymentStatus = "PAID";
+      } else if (statusLower === "pending") {
+        filter.paymentStatus = "PENDING";
+      } else if (statusLower === "overdue") {
+        filter.paymentStatus = "FAILED";
+      }
     }
 
     const invoices = await Invoice.find(filter)
       .populate("solarUnitId", "serialNumber capacity")
       .sort({ createdAt: -1 });
 
-    res.status(200).json(invoices);
+    const transformedInvoices = invoices.map(transformInvoice);
+    res.status(200).json(transformedInvoices);
   } catch (error) {
     next(error);
   }
@@ -68,7 +108,7 @@ export const getInvoiceById = async (
       throw new NotFoundError("Invoice not found");
     }
 
-    res.status(200).json(invoice);
+    res.status(200).json(transformInvoice(invoice));
   } catch (error) {
     next(error);
   }
@@ -87,8 +127,15 @@ export const getAllInvoices = async (
     const { status } = req.query;
     const filter: Record<string, unknown> = {};
 
-    if (status && ["PENDING", "PAID", "FAILED"].includes(status as string)) {
-      filter.paymentStatus = status;
+    if (status) {
+      const statusLower = (status as string).toLowerCase();
+      if (statusLower === "paid") {
+        filter.paymentStatus = "PAID";
+      } else if (statusLower === "pending") {
+        filter.paymentStatus = "PENDING";
+      } else if (statusLower === "overdue") {
+        filter.paymentStatus = "FAILED";
+      }
     }
 
     const invoices = await Invoice.find(filter)
@@ -96,7 +143,8 @@ export const getAllInvoices = async (
       .populate("userId", "firstName lastName email")
       .sort({ createdAt: -1 });
 
-    res.status(200).json(invoices);
+    const transformedInvoices = invoices.map(transformInvoice);
+    res.status(200).json(transformedInvoices);
   } catch (error) {
     next(error);
   }
