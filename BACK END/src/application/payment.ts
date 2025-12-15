@@ -1,40 +1,75 @@
 import Stripe from "stripe";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { Invoice } from "../infrastructure/entities/Invoice";
 import { NotFoundError, ValidationError } from "../domain/errors/errors";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export const createCheckoutSession = async (req: Request, res: Response) => {
-  // 1. Get invoice (use your existing auth + query patterns)
-  const invoice = await Invoice.findById(req.body.invoiceId);
+export const createCheckoutSession = async (
+  req: Request, 
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    console.log("[Checkout] Request body:", req.body);
+    
+    const { invoiceId } = req.body;
+    
+    if (!invoiceId) {
+      return res.status(400).json({ error: "invoiceId is required" });
+    }
 
-  if (!invoice) {
-    throw new NotFoundError("Invoice not found");
-  }
+    // 1. Get invoice
+    const invoice = await Invoice.findById(invoiceId);
+    console.log("[Checkout] Found invoice:", invoice);
 
-  if (invoice.paymentStatus === "PAID") {
-    throw new ValidationError("Invoice already paid");
-  }
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
 
-  // 2. Create Stripe Checkout Session
-  const session = await stripe.checkout.sessions.create({
-    ui_mode: "embedded",
-    line_items: [
-      {
-        price: process.env.STRIPE_PRICE_ID,  // Your Price ID from Dashboard
-        quantity: Math.round(invoice.totalEnergyGenerated),  // kWh as quantity
+    if (invoice.paymentStatus === "PAID") {
+      return res.status(400).json({ error: "Invoice already paid" });
+    }
+
+    // Check required env vars
+    if (!process.env.STRIPE_PRICE_ID) {
+      console.error("[Checkout] STRIPE_PRICE_ID is not set!");
+      return res.status(500).json({ error: "Payment configuration error" });
+    }
+
+    console.log("[Checkout] Creating Stripe session with:", {
+      priceId: process.env.STRIPE_PRICE_ID,
+      quantity: Math.round(invoice.totalEnergyGenerated),
+      returnUrl: `${process.env.FRONTEND_URL}/dashboard/invoices/complete`,
+    });
+
+    // 2. Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      ui_mode: "embedded",
+      line_items: [
+        {
+          price: process.env.STRIPE_PRICE_ID,
+          quantity: Math.round(invoice.totalEnergyGenerated) || 1,
+        },
+      ],
+      mode: "payment",
+      return_url: `${process.env.FRONTEND_URL}/dashboard/invoices/complete?session_id={CHECKOUT_SESSION_ID}`,
+      metadata: {
+        invoiceId: invoice._id.toString(),
       },
-    ],
-    mode: "payment",
-    return_url: `${process.env.FRONTEND_URL}/dashboard/invoices/complete?session_id={CHECKOUT_SESSION_ID}`,
-    metadata: {
-      invoiceId: invoice._id.toString(),  // Critical: links session to your invoice
-    },
-  });
+    });
 
-  // 3. Return client secret to frontend
-  res.json({ clientSecret: session.client_secret });
+    console.log("[Checkout] Session created:", session.id);
+
+    // 3. Return client secret to frontend
+    res.json({ clientSecret: session.client_secret });
+  } catch (error: any) {
+    console.error("[Checkout] Error:", error.message);
+    res.status(500).json({ 
+      error: "Failed to create checkout session",
+      details: error.message 
+    });
+  }
 };
 
 export const getSessionStatus = async (req: Request, res: Response) => {
