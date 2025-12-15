@@ -56,16 +56,15 @@ const seedTestInvoice = async () => {
         billingPeriodStart: existingInvoice.billingPeriodStart,
         billingPeriodEnd: existingInvoice.billingPeriodEnd,
         totalEnergyGenerated: existingInvoice.totalEnergyGenerated,
-        amount: existingInvoice.amount,
         paymentStatus: existingInvoice.paymentStatus,
       });
       process.exit(0);
     }
 
-    // Calculate values
+    // Calculate value
     const totalEnergyGenerated = 150.5; // Test value: 150.5 kWh
     const ratePerKwh = DEFAULT_RATE_PER_KWH;
-    const amount = Math.round(totalEnergyGenerated * ratePerKwh * 100) / 100;
+
     
     // Due date is 15 days after billing period ends
     const dueDate = new Date(billingPeriodEnd);
@@ -83,8 +82,6 @@ const seedTestInvoice = async () => {
       billingPeriodEnd,
       dueDate,
       totalEnergyGenerated,
-      ratePerKwh,
-      amount,
       paymentStatus: "PENDING",
     });
 
@@ -98,8 +95,6 @@ const seedTestInvoice = async () => {
       billingPeriodEnd: testInvoice.billingPeriodEnd,
       dueDate: testInvoice.dueDate,
       totalEnergyGenerated: testInvoice.totalEnergyGenerated,
-      ratePerKwh: testInvoice.ratePerKwh,
-      amount: testInvoice.amount,
       paymentStatus: testInvoice.paymentStatus,
     });
 

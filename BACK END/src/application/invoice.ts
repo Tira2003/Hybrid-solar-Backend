@@ -23,8 +23,6 @@ const transformInvoice = (invoice: any) => {
     status,
     invoiceNumber: invoice.invoiceNumber,
     kwhGenerated: invoice.totalEnergyGenerated,
-    amount: invoice.amount,
-    ratePerKwh: invoice.ratePerKwh,
     billingPeriodStart: invoice.billingPeriodStart,
     billingPeriodEnd: invoice.billingPeriodEnd,
     dueDate: invoice.dueDate,

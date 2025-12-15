@@ -34,16 +34,7 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
-    ratePerKwh: {
-      type: Number,
-      required: true,
-      default: 0.12,
-    },
-    amount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+   
     paymentStatus: {
       type: String,
       required: true,
