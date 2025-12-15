@@ -40,13 +40,28 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
 export const getSessionStatus = async (req: Request, res: Response) => {
   const { session_id } = req.query;
 
-  const session = await stripe.checkout.sessions.retrieve(session_id as string);
+  if (!session_id || typeof session_id !== "string") {
+    return res.status(400).json({ 
+      error: "Missing session_id query parameter" 
+    });
+  }
 
-  res.json({
-    status: session.status,
-    paymentStatus: session.payment_status,
-    amountTotal: session.amount_total,  // Amount in cents
-  });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    res.json({
+      status: session.status ?? "unknown",
+      paymentStatus: session.payment_status ?? "unknown",
+      amountTotal: session.amount_total ?? 0,  // Amount in cents
+      invoiceId: session.metadata?.invoiceId,  // Include invoice reference
+    });
+  } catch (error: any) {
+    console.error("Error retrieving session:", error.message);
+    return res.status(404).json({ 
+      error: "Session not found",
+      details: error.message 
+    });
+  }
 };
 
 export const handleStripeWebhook = async (req: Request, res: Response) => {
