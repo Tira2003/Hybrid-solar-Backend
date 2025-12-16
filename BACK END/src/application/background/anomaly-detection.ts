@@ -458,3 +458,4 @@ async function createAnomalyIfNotExists(
     await anomaly.save();
     console.log(`[Anomaly Detection] Created new ${detection.anomalyType} anomaly for ${date}`);
   }
+}
