@@ -14,6 +14,7 @@ import usersRouter from "./api/users";
 import weatherRouter from "./api/weather";
 import { handleStripeWebhook } from "./application/payment";
 import paymentRoutes from "./api/payment";
+import anomalyRouter from "./api/anomaly";
 
 const server = express();
 server.use(cors({ 
@@ -45,6 +46,7 @@ server.use("/api/users", usersRouter);
 server.use("/api/weather", weatherRouter);
 server.use("/api/invoices", invoiceRouter);
 server.use("/api/payments", paymentRoutes);
+server.use("/api/anomalies", anomalyRouter);
 
 server.use(globalErrorHandler);
 

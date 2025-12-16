@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { syncEnergyGenerationRecords } from '../application/background/sync-energy-generation-records';
 import { generateInvoices } from '../application/background/generate-invoices';
+import { runAnomalyDetection } from '../application/background/anomaly-detection';
 
 export const initializeScheduler = () => {
   // Run daily at 00:00 (midnight) - cron expression: '0 0 * * *'
@@ -32,4 +33,19 @@ export const initializeScheduler = () => {
   });
 
   console.log(`[Scheduler] Invoice generation scheduled for: ${invoiceSchedule}`);
+
+  // Run anomaly detection daily at 01:00 (1 AM) - after energy sync
+  const anomalySchedule = process.env.ANOMALY_CRON_SCHEDULE || '0 1 * * *';
+
+  cron.schedule(anomalySchedule, async () => {
+    console.log(`[${new Date().toISOString()}] Starting daily anomaly detection...`);
+    try {
+      await runAnomalyDetection();
+      console.log(`[${new Date().toISOString()}] Daily anomaly detection completed successfully`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Daily anomaly detection failed:`, error);
+    }
+  });
+
+  console.log(`[Scheduler] Anomaly detection scheduled for: ${anomalySchedule}`);
 };
