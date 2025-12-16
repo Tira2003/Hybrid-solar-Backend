@@ -15,6 +15,7 @@ import weatherRouter from "./api/weather";
 import { handleStripeWebhook } from "./application/payment";
 import paymentRoutes from "./api/payment";
 import anomalyRouter from "./api/anomaly";
+import adminDashboardRouter from "./api/admin-dashboard";
 
 const server = express();
 server.use(cors({ 
@@ -47,6 +48,7 @@ server.use("/api/weather", weatherRouter);
 server.use("/api/invoices", invoiceRouter);
 server.use("/api/payments", paymentRoutes);
 server.use("/api/anomalies", anomalyRouter);
+server.use("/api/admin", adminDashboardRouter);
 
 server.use(globalErrorHandler);
 
