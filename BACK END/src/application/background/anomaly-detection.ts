@@ -316,17 +316,28 @@ export async function runAnomalyDetection(): Promise<void> {
       const recentReadings = records.slice(0, 10).map((r: any) => r.energyGenerated);
 
       // Aggregate daily totals for the last 7 days
-      const dailyTotals = new Map<string, { total: number; records: any[] }>();
+      const dailyTotals = new Map<string, { total: number; records: any[]; avgCloud: number; avgPrecip: number }>();
       
       for (const record of records) {
         const date = new Date((record as any).timestamp).toISOString().split('T')[0];
         if (!dailyTotals.has(date)) {
-          dailyTotals.set(date, { total: 0, records: [] });
+          dailyTotals.set(date, { total: 0, records: [], avgCloud: 0, avgPrecip: 0 });
         }
         const dayData = dailyTotals.get(date)!;
         dayData.total += (record as any).energyGenerated;
         dayData.records.push(record);
       }
+
+      // Calculate average weather for each day
+      const dailyTotalsForWeather = Array.from(dailyTotals.entries());
+      for (const [, dayData] of dailyTotalsForWeather) {
+        const recordCount = dayData.records.length;
+        if (recordCount > 0) {
+          dayData.avgCloud = dayData.records.reduce((sum: number, r: any) => sum + ((r as any).cloudCoverage || 50), 0) / recordCount;
+          dayData.avgPrecip = dayData.records.reduce((sum: number, r: any) => sum + ((r as any).precipitation || 0), 0) / recordCount;
+        }
+      }
+
 
       // Run detection for each day
       const dailyTotalsArray = Array.from(dailyTotals.entries());
@@ -335,8 +346,11 @@ export async function runAnomalyDetection(): Promise<void> {
         const energyGenerated = dayData.total;
         const timestamp = new Date(date);
 
-        // Default weather data (in a real system, this would come from weather API)
-        const cloudCoverage = 50; // Default moderate clouds
+        // Use actual weather data from records
+        const cloudCoverage = Math.round(dayData.avgCloud);
+        const precipitation = dayData.avgPrecip;
+
+        console.log(`[Anomaly Detection] ${date}: Energy=${energyGenerated}, Cloud=${cloudCoverage}%, Precip=${precipitation}mm`);
 
         // Run all detection algorithms
         const detections: DetectionResult[] = [];
@@ -366,16 +380,18 @@ export async function runAnomalyDetection(): Promise<void> {
           detections.push(failureCheck);
         }
 
-        // 3. Weather impact
+        // 3. Weather impact (using actual weather data)
         const expectedGeneration = panelCapacity * 0.5; // Simplified expected calculation
         const weatherCheck = classifyWeatherImpact(
           energyGenerated,
           expectedGeneration,
-          cloudCoverage
+          cloudCoverage,
+          precipitation
         );
         if (weatherCheck.anomalyDetected) {
           detections.push(weatherCheck);
         }
+
 
         // 4. Degradation (only if no critical issues found)
         if (!detections.some(d => d.severity === SEVERITY_LEVELS.CRITICAL) && historicalAverage > 0) {
@@ -442,4 +458,3 @@ async function createAnomalyIfNotExists(
     await anomaly.save();
     console.log(`[Anomaly Detection] Created new ${detection.anomalyType} anomaly for ${date}`);
   }
-}

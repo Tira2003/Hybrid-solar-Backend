@@ -8,6 +8,10 @@ export const DataAPIEnergyGenerationRecordDto = z.object({
     energyGenerated: z.number(),
     timestamp: z.string(),
     intervalHours: z.number(),
+    // Weather fields for anomaly detection
+    cloudCoverage: z.number().optional().default(50),
+    temperature: z.number().optional().default(25),
+    precipitation: z.number().optional().default(0),
     __v: z.number(),
 });
 
@@ -46,16 +50,20 @@ export const syncEnergyGenerationRecords = async () => {
                 .parse(await dataAPIResponse.json());
 
             if (newRecords.length > 0) {
-                // Transform API records to match schema
+                // Transform API records to match schema (including weather data)
                 const recordsToInsert = newRecords.map(record => ({
                     solarUnitId: solarUnit._id,
                     energyGenerated: record.energyGenerated,
                     timestamp: new Date(record.timestamp),
                     intervalHours: record.intervalHours,
+                    // Include weather data for anomaly detection
+                    cloudCoverage: record.cloudCoverage,
+                    temperature: record.temperature,
+                    precipitation: record.precipitation,
                 }));
 
                 await EnergyGenerationRecord.insertMany(recordsToInsert);
-                console.log(`Synced ${recordsToInsert.length} new energy generation records`);
+                console.log(`Synced ${recordsToInsert.length} new energy generation records (with weather data)`);
             }
             else {
                 console.log("No new records to sync");

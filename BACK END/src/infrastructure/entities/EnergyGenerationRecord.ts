@@ -20,6 +20,22 @@ const energyGenerationRecordSchema = new mongoose.Schema({
     min: 0.1,
     max: 24,
   },
+  // Weather data for anomaly detection
+  cloudCoverage: {
+    type: Number,
+    default: 50,
+    min: 0,
+    max: 100,
+  },
+  temperature: {
+    type: Number,
+    default: 25,
+  },
+  precipitation: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
 });
 
 export const EnergyGenerationRecord = mongoose.model(
