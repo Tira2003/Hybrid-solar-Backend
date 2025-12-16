@@ -3,6 +3,8 @@ import { Anomaly, ANOMALY_STATUS } from "../infrastructure/entities/Anomaly";
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { User } from "../infrastructure/entities/User";
 import { AppError } from "../domain/errors/errors";
+import { syncEnergyGenerationRecords } from "./background/sync-energy-generation-records";
+import { runAnomalyDetection } from "./background/anomaly-detection";
 
 /**
  * Get anomalies for the authenticated user's solar unit(s)
@@ -263,6 +265,37 @@ export const getAnomalyStats = async (
       total: totalActive + totalAcknowledged,
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Trigger sync and anomaly detection manually
+ * Called when user clicks "Sync Data" button
+ */
+export const triggerSyncAndDetect = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    console.log(`[Manual Trigger] Starting sync and detect...`);
+    
+    // Run sync first
+    await syncEnergyGenerationRecords();
+    console.log(`[Manual Trigger] Sync completed`);
+    
+    // Then run anomaly detection
+    await runAnomalyDetection();
+    console.log(`[Manual Trigger] Anomaly detection completed`);
+    
+    res.status(200).json({
+      success: true,
+      message: "Sync and anomaly detection completed successfully",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`[Manual Trigger] Error:`, error);
     next(error);
   }
 };

@@ -7,9 +7,13 @@ import {
   acknowledgeAnomaly,
   resolveAnomaly,
   getAnomalyStats,
+  triggerSyncAndDetect,
 } from "../application/anomaly";
 
 const anomalyRouter = express.Router();
+
+// Trigger routes (must be before /:id to avoid route conflict)
+anomalyRouter.post("/trigger/sync-and-detect", requireAuth(), triggerSyncAndDetect);
 
 // User routes (require authentication)
 anomalyRouter.get("/", requireAuth(), getAnomaliesForUser);
