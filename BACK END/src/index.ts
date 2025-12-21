@@ -21,7 +21,7 @@ const server = express();
 server.use(cors({ 
   origin: [
     "http://localhost:5173",
-    "https://fed-4-front-end-tiranga.netlify.app"
+    "https://fed-4-front-end-tirangaliyanage.netlify.app"
   ] 
 }));
 
