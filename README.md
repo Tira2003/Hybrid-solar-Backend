@@ -1,5 +1,14 @@
 # Hybrid Solar Backend
 
+## Links
+
+- **Website:** [https://fed-4-front-end-tirangaliyanage.netlify.app/](https://fed-4-front-end-tirangaliyanage.netlify.app/)
+- **Frontend Repository:** [https://github.com/Tira2003/Solar_FE](https://github.com/Tira2003/Solar_FE)
+- **Backend Repository:** [https://github.com/Tira2003/Hybrid-solar-Backend](https://github.com/Tira2003/Hybrid-solar-Backend)
+- **Data API Repository:** [https://github.com/Tira2003/Hybrid-Solar-data-api](https://github.com/Tira2003/Hybrid-Solar-data-api)
+- **Backend URL:** [https://fed-4-back-end-tiranga.onrender.com](https://fed-4-back-end-tiranga.onrender.com)
+- **API URL:** [https://hybrid-solar-data-api.onrender.com](https://hybrid-solar-data-api.onrender.com)
+
 ## Description
 A robust Node.js and TypeScript backend for a Hybrid Solar System Monitoring and Anomaly Detection platform. This system collects energy generation data from solar units, integrates with real-time weather data to detect anomalies using advanced algorithms, and provides management features for users, payments, and invoices.
 
