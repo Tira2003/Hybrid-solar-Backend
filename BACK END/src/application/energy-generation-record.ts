@@ -42,7 +42,7 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
           },
         ]);
 
-        res.status(200).json(energyGenerationRecords);
+        return res.status(200).json(energyGenerationRecords);
       }
 
       const energyGenerationRecords = await EnergyGenerationRecord.aggregate([
@@ -61,9 +61,36 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
         },
       ]);
 
-      res.status(200).json(energyGenerationRecords.slice(0, parseInt(limit)));
+      return res.status(200).json(energyGenerationRecords.slice(0, parseInt(limit)));
+    }
+
+    if (groupBy === "hour") {
+      const energyGenerationRecords = await EnergyGenerationRecord.aggregate([
+        {
+          $group: {
+            _id: {
+              date: {
+                $dateToString: { format: "%Y-%m-%d", date: "$timestamp" },
+              },
+              hour: {
+                $hour: "$timestamp",
+              },
+            },
+            totalEnergy: { $sum: "$energyGenerated" },
+          },
+        },
+        {
+          $sort: { "_id.date": -1, "_id.hour": -1 },
+        },
+      ]);
+
+      if (limit) {
+        return res.status(200).json(energyGenerationRecords.slice(0, parseInt(limit)));
+      }
+      return res.status(200).json(energyGenerationRecords);
     }
   } catch (error) {
     next(error);
   }
 };
+
