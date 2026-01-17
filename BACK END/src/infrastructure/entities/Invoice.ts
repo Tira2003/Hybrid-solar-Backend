@@ -34,7 +34,23 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
-   
+    ratePerKwh: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0.10, // $0.10 per kWh default rate
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    currency: {
+      type: String,
+      required: true,
+      default: "USD",
+      enum: ["USD", "EUR", "GBP", "LKR"],
+    },
     paymentStatus: {
       type: String,
       required: true,
@@ -43,6 +59,10 @@ const invoiceSchema = new mongoose.Schema(
     },
     paidAt: {
       type: Date,
+      required: false,
+    },
+    stripeSessionId: {
+      type: String,
       required: false,
     },
   },
