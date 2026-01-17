@@ -1,6 +1,8 @@
 import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord";
 import { SolarUnit } from "../../infrastructure/entities/SolarUnit";
 import { Anomaly, ANOMALY_TYPES, SEVERITY_LEVELS, ANOMALY_STATUS } from "../../infrastructure/entities/Anomaly";
+import { ISolarUnit, IEnergyGenerationRecord } from "../../domain/types";
+import { Types } from "mongoose";
 
 interface WeatherData {
   cloudCover: number;
@@ -280,10 +282,10 @@ export async function runAnomalyDetection(): Promise<void> {
   console.log(`[${new Date().toISOString()}] Starting anomaly detection...`);
 
   try {
-    const solarUnits = await SolarUnit.find({ status: "ACTIVE" });
+    const solarUnits = await SolarUnit.find({ status: "ACTIVE" }) as ISolarUnit[];
 
     for (const solarUnit of solarUnits) {
-      console.log(`[Anomaly Detection] Processing solar unit: ${(solarUnit as any).serialNumber}`);
+      console.log(`[Anomaly Detection] Processing solar unit: ${solarUnit.serialNumber}`);
 
       // Get recent energy generation records (last 7 days)
       const sevenDaysAgo = new Date();
@@ -292,10 +294,10 @@ export async function runAnomalyDetection(): Promise<void> {
       const records = await EnergyGenerationRecord.find({
         solarUnitId: solarUnit._id,
         timestamp: { $gte: sevenDaysAgo },
-      }).sort({ timestamp: -1 });
+      }).sort({ timestamp: -1 }) as IEnergyGenerationRecord[];
 
       if (records.length === 0) {
-        console.log(`[Anomaly Detection] No records found for unit ${(solarUnit as any).serialNumber}`);
+        console.log(`[Anomaly Detection] No records found for unit ${solarUnit.serialNumber}`);
         continue;
       }
 
@@ -306,25 +308,25 @@ export async function runAnomalyDetection(): Promise<void> {
       const historicalRecords = await EnergyGenerationRecord.find({
         solarUnitId: solarUnit._id,
         timestamp: { $gte: thirtyDaysAgo, $lt: sevenDaysAgo },
-      });
+      }) as IEnergyGenerationRecord[];
 
       const historicalAverage = historicalRecords.length > 0
-        ? historicalRecords.reduce((sum, r) => sum + (r as any).energyGenerated, 0) / historicalRecords.length
+        ? historicalRecords.reduce((sum, r) => sum + r.energyGenerated, 0) / historicalRecords.length
         : 0;
 
       // Get recent readings for stuck sensor detection
-      const recentReadings = records.slice(0, 10).map((r: any) => r.energyGenerated);
+      const recentReadings = records.slice(0, 10).map((r) => r.energyGenerated);
 
       // Aggregate daily totals for the last 7 days
-      const dailyTotals = new Map<string, { total: number; records: any[]; avgCloud: number; avgPrecip: number }>();
+      const dailyTotals = new Map<string, { total: number; records: IEnergyGenerationRecord[]; avgCloud: number; avgPrecip: number }>();
       
       for (const record of records) {
-        const date = new Date((record as any).timestamp).toISOString().split('T')[0];
+        const date = new Date(record.timestamp).toISOString().split('T')[0];
         if (!dailyTotals.has(date)) {
           dailyTotals.set(date, { total: 0, records: [], avgCloud: 0, avgPrecip: 0 });
         }
         const dayData = dailyTotals.get(date)!;
-        dayData.total += (record as any).energyGenerated;
+        dayData.total += record.energyGenerated;
         dayData.records.push(record);
       }
 
@@ -333,8 +335,8 @@ export async function runAnomalyDetection(): Promise<void> {
       for (const [, dayData] of dailyTotalsForWeather) {
         const recordCount = dayData.records.length;
         if (recordCount > 0) {
-          dayData.avgCloud = dayData.records.reduce((sum: number, r: any) => sum + ((r as any).cloudCoverage || 50), 0) / recordCount;
-          dayData.avgPrecip = dayData.records.reduce((sum: number, r: any) => sum + ((r as any).precipitation || 0), 0) / recordCount;
+          dayData.avgCloud = dayData.records.reduce((sum: number, r) => sum + (r.cloudCoverage || 50), 0) / recordCount;
+          dayData.avgPrecip = dayData.records.reduce((sum: number, r) => sum + (r.precipitation || 0), 0) / recordCount;
         }
       }
 
@@ -342,7 +344,7 @@ export async function runAnomalyDetection(): Promise<void> {
       // Run detection for each day
       const dailyTotalsArray = Array.from(dailyTotals.entries());
       for (const [date, dayData] of dailyTotalsArray) {
-        const panelCapacity = (solarUnit as any).capacity || 5; // Default 5kW
+        const panelCapacity = solarUnit.capacity || 5; // Default 5kW
         const energyGenerated = dayData.total;
         const timestamp = new Date(date);
 
@@ -422,7 +424,7 @@ export async function runAnomalyDetection(): Promise<void> {
  * Create anomaly record if a similar one doesn't already exist
  */
 async function createAnomalyIfNotExists(
-  solarUnitId: any,
+  solarUnitId: Types.ObjectId,
   detection: DetectionResult,
   date: string
 ): Promise<void> {

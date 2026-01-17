@@ -1,12 +1,35 @@
 import { NextFunction, Request, Response } from "express";
+import { getAuth } from "@clerk/express";
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { User } from "../infrastructure/entities/User";
 import { AppError } from "../domain/errors/errors";
+import { ISolarUnit, OpenMeteoResponse } from "../domain/types";
 
 // Simple in-memory cache to avoid rate limits
 interface CacheEntry {
-  data: any;
+  data: WeatherResult;
   timestamp: number;
+}
+
+// Weather result interface
+interface WeatherResult {
+  current: {
+    temperature: number;
+    humidity: number;
+    apparentTemperature: number;
+    precipitation: number;
+    rain: number;
+    cloudCover: number;
+    weatherCode: number;
+    windSpeed: number;
+    windDirection: number;
+  };
+  location: {
+    latitude: number;
+    longitude: number;
+    timezone: string;
+  };
+  timestamp: Date;
 }
 const weatherCache: Map<string, CacheEntry> = new Map();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -17,7 +40,7 @@ export const getWeatherForSolarUnit = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.auth as any)?.userId;
+    const { userId } = getAuth(req);
     const { latitude, longitude } = req.query;
 
     // If coordinates provided as query params, use them directly
@@ -41,15 +64,15 @@ export const getWeatherForSolarUnit = async (
     }
 
     // Get solar unit for user to extract coordinates
-    const solarUnit = await SolarUnit.findOne({ userId: user._id });
+    const solarUnit = await SolarUnit.findOne({ userId: user._id }) as ISolarUnit | null;
 
     if (!solarUnit) {
       throw new AppError("Solar unit not found for user", 404);
     }
 
     // Get latitude and longitude from solar unit
-    const lat = (solarUnit as any)?.latitude;
-    const lon = (solarUnit as any)?.longitude;
+    const lat = solarUnit.latitude;
+    const lon = solarUnit.longitude;
 
     if (lat === null || lat === undefined || lon === null || lon === undefined) {
       throw new AppError(
@@ -65,8 +88,8 @@ export const getWeatherForSolarUnit = async (
       ...weatherData,
       solarUnit: {
         id: solarUnit._id,
-        serialNumber: (solarUnit as any).serialNumber,
-        capacity: (solarUnit as any).capacity,
+        serialNumber: solarUnit.serialNumber,
+        capacity: solarUnit.capacity,
         location: { latitude: lat, longitude: lon },
       },
     });
@@ -142,7 +165,7 @@ async function fetchWeatherFromOpenMeteo(
     throw new Error(`Weather API error: ${response.statusText}`);
   }
 
-  const data = await response.json() as any;
+  const data = await response.json() as OpenMeteoResponse;
 
   // Transform the raw data into a more usable format
   const result = {

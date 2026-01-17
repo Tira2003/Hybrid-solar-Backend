@@ -10,5 +10,5 @@ declare global {
     metadata: {
       role?: Role;
     };
-  } 
+  }
 }

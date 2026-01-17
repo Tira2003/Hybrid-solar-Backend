@@ -5,6 +5,6 @@ import { getAllUsers } from "../application/users";
 
 const usersRouter = express.Router();
 
-usersRouter.route("/").get(getAllUsers);
+usersRouter.route("/").get(authenticationMiddleware, authorizationMiddleware, getAllUsers);
 
 export default usersRouter;

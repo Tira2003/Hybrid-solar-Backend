@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from "express";
+import { getAuth } from "@clerk/express";
 import { Anomaly, ANOMALY_STATUS } from "../infrastructure/entities/Anomaly";
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { User } from "../infrastructure/entities/User";
 import { AppError } from "../domain/errors/errors";
 import { syncEnergyGenerationRecords } from "./background/sync-energy-generation-records";
 import { runAnomalyDetection } from "./background/anomaly-detection";
+import { IAnomaly } from "../domain/types";
 
 /**
  * Get anomalies for the authenticated user's solar unit(s)
@@ -16,7 +18,7 @@ export const getAnomaliesForUser = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.auth as any)?.userId;
+    const { userId } = getAuth(req);
 
     if (!userId) {
       throw new AppError("User not authenticated", 401);
@@ -37,7 +39,7 @@ export const getAnomaliesForUser = async (
     const solarUnitIds = solarUnits.map((unit) => unit._id);
 
     // Build filter query
-    const filter: any = { solarUnitId: { $in: solarUnitIds } };
+    const filter: Record<string, unknown> = { solarUnitId: { $in: solarUnitIds } };
 
     // Apply optional filters from query params
     const { type, severity, status } = req.query;
@@ -74,7 +76,7 @@ export const getAllAnomalies = async (
 ) => {
   try {
     // Build filter query
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
 
     // Apply optional filters from query params
     const { type, severity, status, solarUnitId } = req.query;
@@ -137,21 +139,21 @@ export const acknowledgeAnomaly = async (
 ) => {
   try {
     const { id } = req.params;
-    const userId = (req.auth as any)?.userId;
+    const { userId } = getAuth(req);
 
-    const anomaly = await Anomaly.findById(id);
+    const anomaly = await Anomaly.findById(id) as IAnomaly | null;
 
     if (!anomaly) {
       throw new AppError("Anomaly not found", 404);
     }
 
-    if ((anomaly as any).status === ANOMALY_STATUS.RESOLVED) {
+    if (anomaly.status === ANOMALY_STATUS.RESOLVED) {
       throw new AppError("Cannot acknowledge a resolved anomaly", 400);
     }
 
-    (anomaly as any).status = ANOMALY_STATUS.ACKNOWLEDGED;
-    (anomaly as any).acknowledgedAt = new Date();
-    (anomaly as any).acknowledgedBy = userId;
+    anomaly.status = ANOMALY_STATUS.ACKNOWLEDGED;
+    anomaly.acknowledgedAt = new Date();
+    anomaly.acknowledgedBy = userId ?? null;
 
     await anomaly.save();
 
@@ -171,22 +173,22 @@ export const resolveAnomaly = async (
 ) => {
   try {
     const { id } = req.params;
-    const userId = (req.auth as any)?.userId;
+    const { userId } = getAuth(req);
     const { notes } = req.body;
 
-    const anomaly = await Anomaly.findById(id);
+    const anomaly = await Anomaly.findById(id) as IAnomaly | null;
 
     if (!anomaly) {
       throw new AppError("Anomaly not found", 404);
     }
 
-    (anomaly as any).status = ANOMALY_STATUS.RESOLVED;
-    (anomaly as any).resolvedAt = new Date();
-    (anomaly as any).resolvedBy = userId;
+    anomaly.status = ANOMALY_STATUS.RESOLVED;
+    anomaly.resolvedAt = new Date();
+    anomaly.resolvedBy = userId ?? null;
     
     if (notes) {
-      (anomaly as any).details = {
-        ...(anomaly as any).details,
+      anomaly.details = {
+        ...anomaly.details,
         resolutionNotes: notes,
       };
     }
@@ -208,10 +210,10 @@ export const getAnomalyStats = async (
   next: NextFunction
 ) => {
   try {
-    const userId = (req.auth as any)?.userId;
+    const { userId } = getAuth(req);
 
     // Build base filter
-    let solarUnitFilter: any = {};
+    let solarUnitFilter: Record<string, unknown> = {};
 
     if (userId) {
       const user = await User.findOne({ clerkUserId: userId });
@@ -258,7 +260,7 @@ export const getAnomalyStats = async (
         medium: mediumCount,
         low: lowCount,
       },
-      byType: byType.reduce((acc: any, item: any) => {
+      byType: byType.reduce((acc: Record<string, number>, item: { _id: string; count: number }) => {
         acc[item._id] = item.count;
         return acc;
       }, {}),
